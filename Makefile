@@ -1,4 +1,4 @@
-CC=g++
+CC=gcc
 CFLAGS=-O3 -pipe -Wall -pedantic
 LIBS=-lgdi32
 OUT=test.exe

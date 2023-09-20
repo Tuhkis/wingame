@@ -4,19 +4,33 @@
 /* C++ compatibility */
 #ifdef __cplusplus
 extern "C" {
-#endif /* __cplus */
+#endif /* __cplusplus */
 
 /* Includes */
 #define WIN32_LEAN_AND_MEAN
 #include "windows.h"
 #include "process.h"
 
+/*
+#define COBJMACROS
+#include <mmdeviceapi.h>
+#include <audioclient.h>
+*/
+
 /* Macro definitions */
 #undef TD
 #ifndef TD
 #define TD typedef
 #endif /* TD */
+#ifndef TD
+#error Something has gone severely wrong. Perhaps try a different compiler?
+#endif /* TD */
 
+#ifndef PI
+#define PI (3.141592f)
+#endif /* PI */
+
+/* These exist to quote on quote make variable immutable by default. */
 #define var const
 #define mut
 
@@ -49,11 +63,9 @@ extern "C" {
 
 #define _wg_main I32 WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, I32 nShowCmd)
 #define wg_init wg_init_ex(hInstance)
+/* NOTE: The wg_create_window function-like macro can only be called in the main function! */
 #define wg_create_window(title, width, height) wg_create_window_ex(title, width, height, hInstance, nShowCmd)
 #define wg_close_window(win) DestroyWindow(win.win_handle)
-#define wg_window_event_process \
-	TranslateMessage(&_wg_msg); \
-	DispatchMessage(&_wg_msg)
 #define wg_create_thread(proc, params) (HANDLE) (_beginthread(proc, 0, params))
 #define wg_window_update \
 	InvalidateRect(_wg_win.win_handle, NULL, false); \
@@ -65,15 +77,15 @@ extern "C" {
 #define wg_sleep(t) Sleep(t)
 
 #ifndef true
-#define true (1==1)
+#define true (1 == 1)
 #endif /* true */
 
 #ifndef false
-#define false (2==1)
+#define false (2 == 1)
 #endif /* false */
 
 #ifndef RGB
-#error Something has gone vey wrong. (RGB-macro not defined.)
+#error Something has gone vey wrong. (RGB-macro not defined in windows.h somehow (?).)
 #else
 #define wg_rgb(r, g, b) RGB(r, g, b)
 #endif /* RGB */
@@ -86,7 +98,7 @@ extern "C" {
 #ifndef U8 /* If U8 is not defined, we can safely assume the rest aren't either. */
 TD unsigned char U8;
 TD signed char I8;
-TD unsigned char B8;
+TD char B8;
 
 TD unsigned short U16;
 TD signed short I16;
@@ -119,11 +131,9 @@ TD struct wg_app {
 	char* title;
 } wg_App;
 
-TD struct wg_renderer {
-	wg_Brush b;
-	void* data;
-	wg_Renderer_type t;
-} wg_Renderer;
+TD HDC wg_Graphics;
+
+TD POINT wg_PointI64;
 
 /* Keycodes... fun to type out. */
 TD enum wg_keycode {
@@ -231,24 +241,39 @@ TD enum wg_keycode {
 } wg_Keycode;
 
 /* Vars */
-static var char* _WG_WINDOW_CLASS_NAME = (char*)"wingame_window_class";
+static var char* _WG_WINDOW_CLASS_NAME = (char*) "wingame_window_class";
 static mut WNDCLASS _wg_window_class = {0};
 static mut B8 _wg_running = true;
 static mut wg_Window _wg_win = {0};
 static mut wg_Brush _wg_bg_b;
-static mut MSG _wg_msg = {0};
+static mut HCURSOR _wg_cursor = {0};
+
+static var F32 _wg_sin[360] = {
+	#include "data/sin.txt"
+};
+static var F32 _wg_cos[360] = {
+	#include "data/cos.txt"
+};
+static var F32 _wg_tan[360] = {
+	#include "data/tan.txt"
+};
 
 /* Function declarations */
 LRESULT CALLBACK wg_window_proc(HWND hwnd, U32 msg, WPARAM wParam, LPARAM lParam);
 void wg_init_ex(HINSTANCE hInstance);
 void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance, I32 scmd);
 B8 wg_running();
+wg_PointI64 wg_get_mouse_pos();
+U16 wg_strlen(const char *s);
+F32 wg_sqrt(U32 x);
+
+/* The following must be implemnted by the user. */
 void wg_key_down(wg_Keycode k);
 void wg_key_up(wg_Keycode k);
-
 wg_App wg_main();
+void wg_render(wg_Graphics g);
 
-/* Function implemantions */
+/* Function implementations */
 #ifdef WG_IMPL
 LRESULT CALLBACK wg_window_proc(HWND hwnd, U32 msg, WPARAM wParam, LPARAM lParam) {
 	switch (msg) {
@@ -266,37 +291,57 @@ LRESULT CALLBACK wg_window_proc(HWND hwnd, U32 msg, WPARAM wParam, LPARAM lParam
 		break;
 	}
 	case WM_PAINT: {
-		static mut RECT winr;
-		GetWindowRect(_wg_win.win_handle, &winr);
-		mut PAINTSTRUCT ps;
-		mut HDC hdc = BeginPaint(_wg_win.win_handle, &ps);
-		mut HDC mem_hdc = CreateCompatibleDC(hdc);
-		mut HBITMAP mem_b_map = CreateCompatibleBitmap(hdc, winr.right - winr.left, winr.bottom - winr.top);
-		SelectObject(mem_hdc, mem_b_map);
-		/* DRAW THINGS TO MEM_HDC */
-		var RECT bgr = {0, 0, winr.right - winr.left, winr.bottom - winr.top};
-		FillRect(mem_hdc, &bgr, _wg_bg_b);
+		if (!IsIconic(_wg_win.win_handle)) {
+			static mut RECT winr;
+			GetWindowRect(_wg_win.win_handle, &winr);
+			mut PAINTSTRUCT ps;
+			mut wg_Graphics hdc = BeginPaint(_wg_win.win_handle, &ps);
+			mut wg_Graphics mem_hdc = CreateCompatibleDC(hdc);
+			mut HBITMAP mem_b_map = CreateCompatibleBitmap(hdc, winr.right - winr.left, winr.bottom - winr.top);
+			SelectObject(mem_hdc, mem_b_map);
+			/* Draw to mem_hdc */
+			var RECT bgr = {0, 0, winr.right - winr.left, winr.bottom - winr.top};
+			FillRect(mem_hdc, &bgr, _wg_bg_b);
+			wg_render(mem_hdc);
 
-		BitBlt(hdc, 0, 0, winr.right - winr.left, winr.bottom - winr.top, mem_hdc, 0, 0, SRCCOPY);
-		DeleteObject(mem_b_map);
-		DeleteDC(mem_hdc);
-		DeleteDC(hdc);
-		EndPaint(_wg_win.win_handle, &ps);
+			BitBlt(hdc, 0, 0, winr.right - winr.left, winr.bottom - winr.top, mem_hdc, 0, 0, SRCCOPY);
+			DeleteObject(mem_b_map);
+			DeleteDC(mem_hdc);
+			DeleteDC(hdc);
+			EndPaint(_wg_win.win_handle, &ps);
+		}
 		break;
 	}
 	case WM_KEYDOWN: {
-		wg_key_down((wg_Keycode)wParam);
+		if (!IsIconic(_wg_win.win_handle))
+			wg_key_down((wg_Keycode)wParam);
 		break;
 	}
 	case WM_KEYUP: {
-		wg_key_up((wg_Keycode)wParam);
+		if (!IsIconic(_wg_win.win_handle))
+			wg_key_up((wg_Keycode)wParam);
+		break;
+	}
+	case WM_SETCURSOR: {
+		/* WARN: Magic number!!! I'm not sure if it works on all machines. Trust me bro. */
+		
+		/* lParam in this case should contain what the   *
+		 * cursor is hovering over and 33554433 *seems*  *
+		 * to be the value that detects the client area. */
+		if (!IsIconic(_wg_win.win_handle)) {
+			if (lParam == 33554433) {
+				SetCursor(_wg_cursor);
+				return true;
+			} else
+				return DefWindowProc(hwnd, msg, wParam, lParam);
+		}
 		break;
 	}
 	default:
 		return DefWindowProc(hwnd, msg, wParam, lParam);
 		break;
 	}
-	return 0;
+	return false;
 }
 
 void wg_init_ex(HINSTANCE hInstance) {
@@ -304,6 +349,10 @@ void wg_init_ex(HINSTANCE hInstance) {
 	_wg_window_class.hInstance = hInstance;
 	_wg_window_class.lpszClassName = _WG_WINDOW_CLASS_NAME;
 	RegisterClass(&_wg_window_class);
+	
+	_wg_cursor = LoadCursor(NULL, IDC_ARROW);
+	
+	/* if (CoInitializeEx(NULL, 0) != 0) exit(1); */
 }
 
 void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance, I32 scmd) {
@@ -316,14 +365,16 @@ void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance
 	if (ret.win_handle == NULL) exit(1);
 	ShowWindow(ret.win_handle, scmd);
 	_wg_win = ret;
-	_wg_bg_b = CreateSolidBrush(WINGAME_BG_COL);
+	_wg_bg_b = wg_create_brush(WINGAME_BG_COL);
 }
 
 B8 wg_running() {
 	return _wg_running;
 }
 
+#ifndef WG_NO_HIJACK
 _wg_main {
+	mut MSG msg = {0};
 	mut wg_App a = wg_main();
 	wg_init;
 	if (a.title == NULL) a.title = (char*)"Game Window";
@@ -331,14 +382,39 @@ _wg_main {
 	if (a.height == 0) a.height = 600;
 	wg_create_window(a.title, a.width, a.height);
 
-	while (_wg_running && GetMessage(&_wg_msg, NULL, 0, 0)) {
-		wg_window_event_process;
+	while (_wg_running && GetMessage(&msg, NULL, 0, 0)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
 	}
-	WaitForSingleObject(a.ready, INFINITE);
-	/* TerminateThread(a.ready, 0); */
 	DeleteObject(_wg_bg_b); /* Delete the background brush object. */
+	WaitForSingleObject(a.ready, INFINITE);
 	wg_close_window(a.win);
+	TerminateThread(a.ready, 0);
 	return 0;
+}
+#endif /* WG_NO_HIJACK */
+
+wg_PointI64 wg_get_mouse_pos() {
+	mut wg_PointI64 p;
+	GetCursorPos(&p);
+	static mut RECT winr;
+	GetWindowRect(_wg_win.win_handle, &winr);
+	p.x -= winr.left;
+	p.y -= winr.top;
+	return p;
+}
+
+U16 wg_strlen(const char *s) {
+	mut U16 c = 0;
+	for (;*s != '\0'; ++c) ++s;
+	return c;
+}
+
+F32 wg_sqrt(U32 x) {
+	mut F32 z = 1.f;
+	for (mut U8 i = 0; i <= 10; ++i)
+		z -= (z * z - x) / (2 * z);
+	return z;
 }
 
 #endif /* WG_IMPL */
