@@ -23,7 +23,7 @@ extern "C" {
 #define TD typedef
 #endif /* TD */
 #ifndef TD
-#error Something has gone severely wrong. Perhaps try a different compiler?
+#error Something has gone severely wrong. Perhaps try a different compiler? (Couldnt define TD for some reason...)
 #endif /* TD */
 
 #ifndef PI
@@ -62,8 +62,9 @@ extern "C" {
 #endif /* ABS */
 
 #define _wg_main I32 WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, I32 nShowCmd)
+/* NOTE: The wg_init macro can only be called in the main function with the same params as _wg_main! */
 #define wg_init wg_init_ex(hInstance)
-/* NOTE: The wg_create_window function-like macro can only be called in the main function! */
+/* NOTE: The wg_create_window function-like macro can only be called in the main function with the same params as _wg_main!! */
 #define wg_create_window(title, width, height) wg_create_window_ex(title, width, height, hInstance, nShowCmd)
 #define wg_close_window(win) DestroyWindow(win.win_handle)
 #define wg_create_thread(proc, params) (HANDLE) (_beginthread(proc, 0, params))
@@ -265,7 +266,13 @@ void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance
 B8 wg_running();
 wg_PointI64 wg_get_mouse_pos();
 U16 wg_strlen(const char *s);
-F32 wg_sqrt(U32 x);
+F32 wg_sqrt(F32 x);
+F32 wg_invsqrt(F32 n); /* It's the one... */
+/* WARN: Only works with natural numbers in the range 0-359 */
+/* NOTE: Uses degrees. Not radians. */
+const F32 wg_sin(U16 alpha);
+const F32 wg_cos(U16 alpha);
+const F32 wg_tan(U16 alpha);
 
 /* The following must be implemnted by the user. */
 void wg_key_down(wg_Keycode k);
@@ -292,6 +299,7 @@ LRESULT CALLBACK wg_window_proc(HWND hwnd, U32 msg, WPARAM wParam, LPARAM lParam
 	}
 	case WM_PAINT: {
 		if (!IsIconic(_wg_win.win_handle)) {
+#ifndef WG_CUSTOM_RENDER
 			static mut RECT winr;
 			GetWindowRect(_wg_win.win_handle, &winr);
 			mut PAINTSTRUCT ps;
@@ -303,12 +311,14 @@ LRESULT CALLBACK wg_window_proc(HWND hwnd, U32 msg, WPARAM wParam, LPARAM lParam
 			var RECT bgr = {0, 0, winr.right - winr.left, winr.bottom - winr.top};
 			FillRect(mem_hdc, &bgr, _wg_bg_b);
 			wg_render(mem_hdc);
-
 			BitBlt(hdc, 0, 0, winr.right - winr.left, winr.bottom - winr.top, mem_hdc, 0, 0, SRCCOPY);
 			DeleteObject(mem_b_map);
 			DeleteDC(mem_hdc);
 			DeleteDC(hdc);
 			EndPaint(_wg_win.win_handle, &ps);
+#else
+			wg_render(NULL);
+#endif /* WG_CUSTOM_RENDER */
 		}
 		break;
 	}
@@ -410,12 +420,38 @@ U16 wg_strlen(const char *s) {
 	return c;
 }
 
-F32 wg_sqrt(U32 x) {
+F32 wg_sqrt(F32 x) {
 	mut F32 z = 1.f;
 	for (mut U8 i = 0; i <= 10; ++i)
 		z -= (z * z - x) / (2 * z);
 	return z;
 }
+
+/* It has some precision errors, since it *
+ * only approximates the inverse square   *
+ * root, but it's fine in my opinion      */
+F32 wg_invsqrt(F32 n) {
+	mut I64 i;
+	mut F32 x2, y;
+	var F32 threehalfs = 1.5f;
+/* This is to disable warnings with GCC... */
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-Wuninitialized"
+	x2 = n * 0.5f;
+	y  = n;
+	i  = * ( long * ) &y;                        /* evil floating point bit level hacking */
+	i  = 0x5f3759df - ( i >> 1 );                /* what the fuck? */
+	y  = * ( float * ) &i;
+	y  = y * ( threehalfs - ( x2 * y * y ) );    /* 1st iteration */
+	/* y  = y * ( threehalfs - ( x2 * y * y ) );    2nd iteration, this can be removed */
+#pragma GCC diagnostic pop
+	return y;
+}
+
+const F32 wg_sin(U16 alpha) { return _wg_sin[alpha]; }
+const F32 wg_cos(U16 alpha) { return _wg_cos[alpha]; }
+const F32 wg_tan(U16 alpha) { return _wg_tan[alpha]; }
 
 #endif /* WG_IMPL */
 

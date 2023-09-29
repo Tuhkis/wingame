@@ -1,4 +1,5 @@
 #define WG_IMPL
+/* #define WG_CUSTOM_RENDER */
 #include "wingame.h"
 
 #include <stdio.h>
@@ -7,6 +8,8 @@
 
 mut wg_Brush b[4];
 mut U32 x = 32;
+
+/* HBITMAP bmap = NULL; */
 
 void wg_key_down(wg_Keycode k) {
 	if (k == WG_KEY_SPACE) printf_s("Space down\n");
@@ -48,9 +51,19 @@ void wg_render(wg_Graphics g) {
 	wg_PointI64 m_pos = wg_get_mouse_pos();
 	RECT r = {m_pos.x, m_pos.y, m_pos.x + 32, m_pos.y + 32};
 	FillRect(g, &r, b[0]);
+
+	/* BITMAP bm;
+	HDC hdcMem = CreateCompatibleDC(g);
+	HBITMAP hbmOld = SelectObject(hdcMem, bmap);
+	GetObject(bmap, sizeof(bm), &bm);
+	BitBlt(g, 0, 0, bm.bmWidth, bm.bmHeight, hdcMem, 0, 0, SRCCOPY);
+	SelectObject(hdcMem, hbmOld);
+	DeleteDC(hdcMem); */
 }
 
 wg_App wg_main() {
+	/* bmap = LoadImage( NULL, ".\test.bmp", IMAGE_BITMAP, 64, 64, LR_LOADFROMFILE); */
+	
 	b[0] = wg_create_brush(wg_rgb(232, 255, 60));
 	b[1] = wg_create_brush(wg_rgb(255, 40, 232));
 	b[2] = wg_create_brush(wg_rgb(255, 40, 40));
@@ -61,7 +74,11 @@ wg_App wg_main() {
 	app.height = 512 + 128;
 	app.ready = wg_create_thread(ready, NULL);
 	
-	printf_s("Sin 90: %f.\n", _wg_sin[90]);
+	printf_s("wg_sin(90) = %f.\n", wg_sin(90));
+	
+	printf_s("wg_invsqrt(90) = %f.\n", wg_invsqrt(90));
+	
+		printf_s("wg_sqrt(9) = %f.\n", wg_sqrt(9));
 	
 	return app;
 }

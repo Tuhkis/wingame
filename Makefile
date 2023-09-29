@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-O3 -pipe -Wall -pedantic
+CFLAGS=-O3 -pipe -Wall -pedantic -Werror
 LIBS=-lgdi32
 OUT=test.exe
 
