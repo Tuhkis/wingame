@@ -266,7 +266,7 @@ void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance
 B8 wg_running();
 wg_PointI64 wg_get_mouse_pos();
 U16 wg_strlen(const char *s);
-F32 wg_sqrt(F32 x);
+F64 wg_sqrt(F64 x);
 F32 wg_invsqrt(F32 n); /* It's the one... */
 /* WARN: Only works with natural numbers in the range 0-359 */
 /* NOTE: Uses degrees. Not radians. */
@@ -420,12 +420,20 @@ U16 wg_strlen(const char *s) {
 	return c;
 }
 
-F32 wg_sqrt(F32 x) {
-	mut F32 z = 1.f;
+#ifdef WG_SOFTWARE_SQRT
+F64 wg_sqrt(F64 x) {
+	mut F64 z = 1.f;
 	for (mut U8 i = 0; i <= 10; ++i)
 		z -= (z * z - x) / (2 * z);
 	return z;
 }
+#else
+F64 wg_sqrt(F64 x) {
+	mut F64 ret;
+	asm("sqrtsd %1, %0" : "=x" (ret) : "xm" (x));
+	return ret;
+}
+#endif /* WG_SOFTWARE_SQRT */
 
 /* It has some precision errors, since it *
  * only approximates the inverse square   *
