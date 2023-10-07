@@ -12,11 +12,11 @@ mut U32 x = 32;
 /* HBITMAP bmap = NULL; */
 
 void wg_key_down(wg_Keycode k) {
-	if (k == WG_KEY_SPACE) printf_s("Space down\n");
+	if (k == WG_KEY_SPACE) printf_s(STR"Space down\n");
 }
 
 void wg_key_up(wg_Keycode k) {
-	if (k == WG_KEY_SPACE) printf_s("Space up\n");
+	if (k == WG_KEY_SPACE) printf_s(STR"Space up\n");
 }
 
 static void ready() {
@@ -61,7 +61,7 @@ void wg_render(wg_Graphics g) {
 	DeleteDC(hdcMem); */
 }
 
-wg_App wg_main() {
+wg_App wg_main(void) {
 	/* bmap = LoadImage( NULL, ".\test.bmp", IMAGE_BITMAP, 64, 64, LR_LOADFROMFILE); */
 	
 	b[0] = wg_create_brush(wg_rgb(232, 255, 60));
@@ -69,16 +69,14 @@ wg_App wg_main() {
 	b[2] = wg_create_brush(wg_rgb(255, 40, 40));
 	b[3] = wg_create_brush(wg_rgb(128, 255, 255));
 	mut wg_App app = {0};
-	app.title = (char*)"Game Window";
+	app.title = STR"Game Window";
 	app.width = 1024 - 128;
 	app.height = 512 + 128;
 	app.ready = wg_create_thread(ready, NULL);
 	
-	printf_s("wg_sin(90) = %f.\n", wg_sin(90));
-	
-	printf_s("wg_invsqrt(90) = %f.\n", wg_invsqrt(90));
-	
-		printf_s("wg_sqrt(9) = %f.\n", wg_sqrt(9));
+	printf_s(STR"wg_sin(90) = %f.\n", wg_sin(90));
+	printf_s(STR"wg_invsqrt(90) = %f.\n", wg_invsqrt(90));
+	printf_s(STR"wg_sqrt(9) = %f.\n", wg_sqrt(9));
 	
 	return app;
 }

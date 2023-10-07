@@ -61,6 +61,11 @@ extern "C" {
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 #endif /* ABS */
 
+#ifdef STR
+#error Some library youre using is incompatible with Wingame. STR is defined.
+#endif /* STR */
+#define STR (char*)
+
 #define _wg_main I32 WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, I32 nShowCmd)
 /* NOTE: The wg_init macro can only be called in the main function with the same params as _wg_main! */
 #define wg_init wg_init_ex(hInstance)
@@ -114,6 +119,11 @@ TD float F32;
 TD double F64;
 #endif /* U8 */
 
+#undef String
+#ifndef String
+TD char* String;
+#endif /* String */
+
 TD enum wg_renderer_type {
 	WG_RENDERER_RECT,
 	WG_RENDERER_TEXT,
@@ -129,7 +139,7 @@ TD struct wg_app {
 	wg_Window win;
 	HANDLE ready;
 	I32 width, height;
-	char* title;
+	String title;
 } wg_App;
 
 TD HDC wg_Graphics;
@@ -242,7 +252,7 @@ TD enum wg_keycode {
 } wg_Keycode;
 
 /* Vars */
-static var char* _WG_WINDOW_CLASS_NAME = (char*) "wingame_window_class";
+static var String _WG_WINDOW_CLASS_NAME = STR"wingame_window_class";
 static mut WNDCLASS _wg_window_class = {0};
 static mut B8 _wg_running = true;
 static mut wg_Window _wg_win = {0};
@@ -262,10 +272,10 @@ static var F32 _wg_tan[360] = {
 /* Function declarations */
 LRESULT CALLBACK wg_window_proc(HWND hwnd, U32 msg, WPARAM wParam, LPARAM lParam);
 void wg_init_ex(HINSTANCE hInstance);
-void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance, I32 scmd);
-B8 wg_running();
-wg_PointI64 wg_get_mouse_pos();
-U16 wg_strlen(const char *s);
+void wg_create_window_ex(String title, I32 width, I32 height, HINSTANCE hInstance, I32 scmd);
+B8 wg_running(void);
+wg_PointI64 wg_get_mouse_pos(void);
+U16 wg_strlen(String s);
 F64 wg_sqrt(F64 x);
 F32 wg_invsqrt(F32 n); /* It's the one... */
 /* WARN: Only works with natural numbers in the range 0-359 */
@@ -277,7 +287,7 @@ const F32 wg_tan(U16 alpha);
 /* The following must be implemnted by the user. */
 void wg_key_down(wg_Keycode k);
 void wg_key_up(wg_Keycode k);
-wg_App wg_main();
+wg_App wg_main(void);
 void wg_render(wg_Graphics g);
 
 /* Function implementations */
@@ -365,7 +375,7 @@ void wg_init_ex(HINSTANCE hInstance) {
 	/* if (CoInitializeEx(NULL, 0) != 0) exit(1); */
 }
 
-void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance, I32 scmd) {
+void wg_create_window_ex(String title, I32 width, I32 height, HINSTANCE hInstance, I32 scmd) {
 	mut wg_Window ret = {0};
 	_wg_running = true;
 	ret.win_handle = CreateWindowEx(0, _WG_WINDOW_CLASS_NAME, title, WS_OVERLAPPEDWINDOW,
@@ -378,7 +388,7 @@ void wg_create_window_ex(char *title, I32 width, I32 height, HINSTANCE hInstance
 	_wg_bg_b = wg_create_brush(WINGAME_BG_COL);
 }
 
-B8 wg_running() {
+B8 wg_running(void) {
 	return _wg_running;
 }
 
@@ -387,7 +397,7 @@ _wg_main {
 	mut MSG msg = {0};
 	mut wg_App a = wg_main();
 	wg_init;
-	if (a.title == NULL) a.title = (char*)"Game Window";
+	if (a.title == NULL) a.title = STR"Game Window";
 	if (a.width == 0) a.width = 800;
 	if (a.height == 0) a.height = 600;
 	wg_create_window(a.title, a.width, a.height);
@@ -404,7 +414,7 @@ _wg_main {
 }
 #endif /* WG_NO_HIJACK */
 
-wg_PointI64 wg_get_mouse_pos() {
+wg_PointI64 wg_get_mouse_pos(void) {
 	mut wg_PointI64 p;
 	GetCursorPos(&p);
 	static mut RECT winr;
@@ -414,7 +424,7 @@ wg_PointI64 wg_get_mouse_pos() {
 	return p;
 }
 
-U16 wg_strlen(const char *s) {
+U16 wg_strlen(String s) {
 	mut U16 c = 0;
 	for (;*s != '\0'; ++c) ++s;
 	return c;
