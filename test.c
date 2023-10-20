@@ -20,10 +20,7 @@ void wg_key_up(wg_Keycode k) {
 }
 
 static void ready() {
-	while (wg_running()) {
-		++x;
-		if (x > 512) x = 32;
-		
+	while (wg_running()) {		
 		wg_window_update;
 		wg_sleep(1000 / FPS);
 	}
@@ -36,7 +33,7 @@ static void ready() {
 }
 
 void wg_render(wg_Graphics g) {
-	mut U8 a = 0;
+	/* mut U8 a = 0;
 	for (mut U8 x = 0; x < 17; ++x) {
 		for (mut U8 i = 0; i < 5; ++i) {
 			var RECT r = {i * 32 + (x * 42), i * 32, i * 32 + 32 + (x * 42), i * 32 + 32};
@@ -46,11 +43,13 @@ void wg_render(wg_Graphics g) {
 		}
 		++a;
 		if (a > 3) a = 0;
-	}
+	} */
 	
 	wg_PointI64 m_pos = wg_get_mouse_pos();
-	RECT r = {m_pos.x, m_pos.y, m_pos.x + 32, m_pos.y + 32};
-	FillRect(g, &r, b[0]);
+	RECT r = {m_pos.x, m_pos.y, m_pos.x + 900, m_pos.y + 32};
+	// FillRect(g, &r, b[0]);
+	SetTextColor(g, wg_rgb(255,0,0));
+	DrawText(g, "Hello world!\0", -1, &r, DT_LEFT);
 
 	/* BITMAP bm;
 	HDC hdcMem = CreateCompatibleDC(g);

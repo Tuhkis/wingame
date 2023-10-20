@@ -417,10 +417,11 @@ _wg_main {
 wg_PointI64 wg_get_mouse_pos(void) {
 	mut wg_PointI64 p;
 	GetCursorPos(&p);
-	static mut RECT winr;
+	ScreenToClient(_wg_win.win_handle, &p);
+	/* static mut RECT winr;
 	GetWindowRect(_wg_win.win_handle, &winr);
 	p.x -= winr.left;
-	p.y -= winr.top;
+	p.y -= winr.top; */
 	return p;
 }
 
